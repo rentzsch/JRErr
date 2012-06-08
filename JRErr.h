@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.1
+// JRErr.h semver:0.0.2
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -8,7 +8,7 @@
 #define jrErr [[JRErrContext currentContext] currentError]
 
 #define JRPushErr(CODE)                                                                                             \
-    {{                                                                                                              \
+    ({                                                                                                              \
         NSError *_jrErr = nil;                                                                                      \
         NSError **jrErrRef = &_jrErr;                                                                               \
         BOOL _hasVoidReturnType;                                                                                    \
@@ -46,15 +46,18 @@
             }                                                                                                       \
             [[JRErrContext currentContext] pushError:_mergedError];                                                 \
         }                                                                                                           \
-        jrErrRef++;                                                                                                 \
-    }}
+        _Pragma("clang diagnostic push")                                                                            \
+        _Pragma("clang diagnostic ignored \"-Wunused-value\"")                                                      \
+        (typeof(CODE))_codeResult;                                                                                  \
+        _Pragma("clang diagnostic pop")                                                                             \
+    })
 
-#define ReturnOrReportLocoErr(ERROR_RESULT_REF) \
-    if (jrerr) {                                \
-        if (ERROR_RESULT_REF) {                 \
-            *ERROR_RESULT_REF = locoErr;        \
+#define JRReturnErr()                           \
+    if (jrErr) {                                \
+        if (error) {                            \
+            *error = jrErr;                     \
         } else {                                \
-            JRLogNSError(locoErr);              \
+            JRLogNSError(jrErr);                \
         }                                       \
         return NO;                              \
     } else {                                    \
