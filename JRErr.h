@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.2
+// JRErr.h semver:0.0.3
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -52,18 +52,46 @@
         _Pragma("clang diagnostic pop")                                                                             \
     })
 
-#define JRReturnErr()                           \
-    if (jrErr) {                                \
-        if (error) {                            \
-            *error = jrErr;                     \
-        } else {                                \
-            JRLogNSError(jrErr);                \
-        }                                       \
-        return NO;                              \
-    } else {                                    \
-        return YES;                             \
-    }
+#define returnJRErr_0() \
+    returnJRErr_2(YES, NO)
 
+#define returnJRErr_1(_successValue) \
+    returnJRErr_2(_successValue, nil)
+
+#if defined(JRLogNSError)
+    #define returnJRErr_2(_successValue, _errorValue)   \
+        if (jrErr) {                                    \
+            if (error) {                                \
+                *error = jrErr;                         \
+            } else {                                    \
+                JRLogNSError(jrErr);                    \
+            }                                           \
+            return _errorValue;                         \
+        } else {                                        \
+            return _successValue;                       \
+        }
+#else
+    #define returnJRErr_2(_successValue, _errorValue)   \
+        if (jrErr) {                                    \
+            if (error) {                                \
+                *error = jrErr;                         \
+            } else {                                    \
+                NSLog(@"error: %@", jrErr);             \
+            }                                           \
+            return _errorValue;                         \
+        } else {                                        \
+            return _successValue;                       \
+        }
+#endif
+
+#define returnJRErr_X(ignored,A,B,FUNC,...) FUNC
+
+#define returnJRErr(...)            \
+    returnJRErr_X(,                 \
+        ##__VA_ARGS__,              \
+        returnJRErr_2(__VA_ARGS__), \
+        returnJRErr_1(__VA_ARGS__), \
+        returnJRErr_0(__VA_ARGS__))
 
 @interface JRErrContext : NSObject {
 #ifndef NOIVARS
