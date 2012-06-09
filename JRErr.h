@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.3
+// JRErr.h semver:0.0.4
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -59,28 +59,34 @@
     returnJRErr_2(_successValue, nil)
 
 #if defined(JRLogNSError)
-    #define returnJRErr_2(_successValue, _errorValue)   \
-        if (jrErr) {                                    \
-            if (error) {                                \
-                *error = jrErr;                         \
-            } else {                                    \
-                JRLogNSError(jrErr);                    \
-            }                                           \
-            return _errorValue;                         \
-        } else {                                        \
-            return _successValue;                       \
+    #define returnJRErr_2(_successValue, _errorValue)                               \
+        if (jrErr) {                                                                \
+            if (error) {                                                            \
+                *error = jrErr;                                                     \
+            } else {                                                                \
+                for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
+                    JRLogNSError(_errItr);                                          \
+                }                                                                   \
+                [[JRErrContext currentContext].errorStack removeAllObjects];        \
+            }                                                                       \
+            return _errorValue;                                                     \
+        } else {                                                                    \
+            return _successValue;                                                   \
         }
 #else
-    #define returnJRErr_2(_successValue, _errorValue)   \
-        if (jrErr) {                                    \
-            if (error) {                                \
-                *error = jrErr;                         \
-            } else {                                    \
-                NSLog(@"error: %@", jrErr);             \
-            }                                           \
-            return _errorValue;                         \
-        } else {                                        \
-            return _successValue;                       \
+    #define returnJRErr_2(_successValue, _errorValue)                               \
+        if (jrErr) {                                                                \
+            if (error) {                                                            \
+                *error = jrErr;                                                     \
+            } else {                                                                \
+                for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
+                    NSLog(@"error: %@", _errItr);                                   \
+                }                                                                   \
+                [[JRErrContext currentContext].errorStack removeAllObjects];        \
+            }                                                                       \
+            return _errorValue;                                                     \
+        } else {                                                                    \
+            return _successValue;                                                   \
         }
 #endif
 
