@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.4
+// JRErr.h semver:0.0.5
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -7,50 +7,86 @@
 
 #define jrErr [[JRErrContext currentContext] currentError]
 
+//-----------------------------------------------------------------------------------------
+
 #define JRPushErr(CODE)                                                                                             \
     ({                                                                                                              \
-        NSError *_jrErr = nil;                                                                                      \
-        NSError **jrErrRef = &_jrErr;                                                                               \
-        BOOL _hasVoidReturnType;                                                                                    \
-        intptr_t _codeResult = (intptr_t) __builtin_choose_expr(__builtin_types_compatible_p(typeof(CODE), void),   \
-            (_hasVoidReturnType = YES, CODE, -1),                                                                   \
-            (_hasVoidReturnType = NO, CODE));                                                                       \
-        BOOL _hasError = NO;                                                                                        \
-        if (_hasVoidReturnType) {                                                                                   \
-            if (_jrErr) {                                                                                           \
-                _hasError = YES;                                                                                    \
+        NSError *__jrErr = nil;                                                                                     \
+        NSError **jrErrRef __attribute__((unused)) = &__jrErr;                                                      \
+        BOOL __hasVoidReturnType;                                                                                   \
+        intptr_t __codeResult = (intptr_t) __builtin_choose_expr(__builtin_types_compatible_p(typeof(CODE), void),  \
+            (__hasVoidReturnType = YES, CODE, -1),                                                                  \
+            (__hasVoidReturnType = NO, CODE));                                                                      \
+        BOOL __hasError = NO;                                                                                       \
+        if (__hasVoidReturnType) {                                                                                  \
+            if (__jrErr) {                                                                                          \
+                __hasError = YES;                                                                                   \
             }                                                                                                       \
         } else {                                                                                                    \
-            if (!_codeResult) {                                                                                     \
-                _hasError = YES;                                                                                    \
+            if (!__codeResult) {                                                                                    \
+                __hasError = YES;                                                                                   \
             }                                                                                                       \
         }                                                                                                           \
-        if (_hasError) {                                                                                            \
-            NSMutableDictionary *_userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:                     \
-                [NSString stringWithUTF8String:__FILE__],   @"__FILE__",                                            \
-                [NSNumber numberWithInt:__LINE__],   @"__LINE__",                                                   \
+        if (__hasError) {                                                                                           \
+            NSMutableDictionary *__userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:                    \
+                [NSString stringWithUTF8String:__FILE__], @"__FILE__",                                              \
+                [NSNumber numberWithInt:__LINE__], @"__LINE__",                                                     \
                 [NSString stringWithUTF8String:__PRETTY_FUNCTION__], @"__PRETTY_FUNCTION__",                        \
                 [NSString stringWithUTF8String:#CODE], @"CODE",                                                     \
                 [NSThread callStackSymbols], @"callStack",                                                          \
                 nil];                                                                                               \
-            NSError *_mergedError;                                                                                  \
-            if (_jrErr) {                                                                                           \
-                [_userInfo setValuesForKeysWithDictionary:[_jrErr userInfo]];                                       \
-                _mergedError = [NSError errorWithDomain:[_jrErr domain]                                             \
-                                                     code:[_jrErr code]                                             \
-                                                 userInfo:_userInfo];                                               \
+            NSError *__mergedError;                                                                                 \
+            if (__jrErr) {                                                                                          \
+                [__userInfo setValuesForKeysWithDictionary:[__jrErr userInfo]];                                     \
+                __mergedError = [NSError errorWithDomain:[__jrErr domain]                                           \
+                                                     code:[__jrErr code]                                            \
+                                                 userInfo:__userInfo];                                              \
             } else {                                                                                                \
-                _mergedError = [NSError errorWithDomain:@"JRErrDomain"                                              \
+                __mergedError = [NSError errorWithDomain:@"JRErrDomain"                                             \
                                                      code:-1                                                        \
-                                                 userInfo:_userInfo];                                               \
+                                                 userInfo:__userInfo];                                              \
             }                                                                                                       \
-            [[JRErrContext currentContext] pushError:_mergedError];                                                 \
+            [[JRErrContext currentContext] pushError:__mergedError];                                                \
         }                                                                                                           \
         _Pragma("clang diagnostic push")                                                                            \
         _Pragma("clang diagnostic ignored \"-Wunused-value\"")                                                      \
-        (typeof(CODE))_codeResult;                                                                                  \
+        (typeof(CODE))__codeResult;                                                                                 \
         _Pragma("clang diagnostic pop")                                                                             \
     })
+
+//-----------------------------------------------------------------------------------------
+
+// If you want to use JRPushErrMsg with [NSString stringWithFormat:] and its ilk, you'll have to wrap the call
+// in an extra set of parentheses to overcome that the preprocessor doesn't understand Obj-C syntax:
+//     JRPushErrMsg(([NSString stringWithFormat:@"Couldn't open file %@", fileName]), @"Unknown format.");
+
+#define JRPushErrMsg(__failureDescription, __reasonDescription)                                                 \
+    {{                                                                                                          \
+        NSDictionary *__userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:                           \
+                                   __failureDescription, NSLocalizedDescriptionKey,                             \
+                                   __reasonDescription, NSLocalizedFailureReasonErrorKey,                       \
+                                   [NSString stringWithUTF8String:__FILE__], @"__FILE__",                       \
+                                   [NSNumber numberWithInt:__LINE__], @"__LINE__",                              \
+                                   [NSString stringWithUTF8String:__PRETTY_FUNCTION__], @"__PRETTY_FUNCTION__", \
+                                   [NSThread callStackSymbols], @"callStack",                                   \
+                                   nil];                                                                        \
+        [[JRErrContext currentContext] pushError:[NSError errorWithDomain:[[self class] description]            \
+                                                                     code:-1                                    \
+                                                                 userInfo:__userInfo]];                         \
+    }}
+
+//-----------------------------------------------------------------------------------------
+
+// Function-macros with optional parameters technique stolen from http://stackoverflow.com/a/8814003/5260
+
+#define returnJRErr(...)            \
+    returnJRErr_X(,                 \
+        ##__VA_ARGS__,              \
+        returnJRErr_2(__VA_ARGS__), \
+        returnJRErr_1(__VA_ARGS__), \
+        returnJRErr_0(__VA_ARGS__))
+
+#define returnJRErr_X(ignored,A,B,FUNC,...) FUNC
 
 #define returnJRErr_0() \
     returnJRErr_2(YES, NO)
@@ -90,14 +126,7 @@
         }
 #endif
 
-#define returnJRErr_X(ignored,A,B,FUNC,...) FUNC
-
-#define returnJRErr(...)            \
-    returnJRErr_X(,                 \
-        ##__VA_ARGS__,              \
-        returnJRErr_2(__VA_ARGS__), \
-        returnJRErr_1(__VA_ARGS__), \
-        returnJRErr_0(__VA_ARGS__))
+//----------------------------------------------------------------------------------------- 
 
 @interface JRErrContext : NSObject {
 #ifndef NOIVARS
