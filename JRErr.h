@@ -79,6 +79,21 @@ extern NSString * const JRErrDomain;
 
 //-----------------------------------------------------------------------------------------
 
+#define JRErrEqual(__err, __domain, __code)    \
+    (__err && [[__err domain] isEqualToString:__domain] && [__err code] == __code)
+
+//-----------------------------------------------------------------------------------------
+
+#define JRMakeErrUserInfo()                                                             \
+    [NSMutableDictionary dictionaryWithObjectsAndKeys:                                  \
+        [NSString stringWithUTF8String:__FILE__], @"__FILE__",                          \
+        [NSNumber numberWithInt:__LINE__], @"__LINE__",                                 \
+        [NSString stringWithUTF8String:__PRETTY_FUNCTION__], @"__PRETTY_FUNCTION__",    \
+        [NSThread callStackSymbols], @"callStack",                                      \
+        nil]                                                                            \
+
+//-----------------------------------------------------------------------------------------
+
 // Function-macros with optional parameters technique stolen from http://stackoverflow.com/a/8814003/5260
 
 #define returnJRErr(...)            \
