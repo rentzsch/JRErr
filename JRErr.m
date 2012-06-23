@@ -5,6 +5,8 @@
 
 #import "JRErr.h"
 
+NSString * const JRErrDomain = @"JRErrDomain";
+
 void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info) {
     JRErrContext *errContext = [JRErrContext currentContext];
     for (NSError *error in errContext.errorStack) {

@@ -7,6 +7,8 @@
 
 #define jrErr [[JRErrContext currentContext] currentError]
 
+extern NSString * const JRErrDomain;
+
 //-----------------------------------------------------------------------------------------
 
 #define JRPushErr(CODE)                                                                                             \
@@ -42,7 +44,7 @@
                                                      code:[__jrErr code]                                            \
                                                  userInfo:__userInfo];                                              \
             } else {                                                                                                \
-                __mergedError = [NSError errorWithDomain:@"JRErrDomain"                                             \
+                __mergedError = [NSError errorWithDomain:JRErrDomain                                                \
                                                      code:-1                                                        \
                                                  userInfo:__userInfo];                                              \
             }                                                                                                       \
