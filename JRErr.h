@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.5
+// JRErr.h semver:0.0.7
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -11,7 +11,7 @@ extern NSString * const JRErrDomain;
 
 //-----------------------------------------------------------------------------------------
 
-#define JRPushErr(CODE)                                                                                             \
+#define JRPushErrImpl(CODE, __shouldThrow)                                                                          \
     ({                                                                                                              \
         NSError *__jrErr = nil;                                                                                     \
         NSError **jrErrRef __attribute__((unused)) = &__jrErr;                                                      \
@@ -49,12 +49,21 @@ extern NSString * const JRErrDomain;
                                                  userInfo:__userInfo];                                              \
             }                                                                                                       \
             [[JRErrContext currentContext] pushError:__mergedError];                                                \
+            if (__shouldThrow) {                                                                                    \
+                [[NSException exceptionWithName:@"NSError"                                                          \
+                                         reason:[__mergedError description]                                         \
+                                       userInfo:[NSDictionary dictionaryWithObject:__mergedError                    \
+                                                                            forKey:@"error"]] raise];               \
+            }                                                                                                       \
         }                                                                                                           \
         _Pragma("clang diagnostic push")                                                                            \
         _Pragma("clang diagnostic ignored \"-Wunused-value\"")                                                      \
         (typeof(CODE))__codeResult;                                                                                 \
         _Pragma("clang diagnostic pop")                                                                             \
     })
+
+#define JRPushErr(CODE)   JRPushErrImpl(CODE, NO)
+#define JRThrowErr(CODE)  JRPushErrImpl(CODE, YES)
 
 //-----------------------------------------------------------------------------------------
 
