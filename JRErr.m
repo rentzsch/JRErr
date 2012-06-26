@@ -1,4 +1,4 @@
-// JRErr.m semver:0.0.7
+// JRErr.m semver:0.0.8
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -65,6 +65,22 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
         [self.errorStack removeLastObject];
     }
     return result;
+}
+
+@end
+
+@implementation JRErrException
+
++ (id)exceptionWithError:(NSError*)error {
+    return [[[self alloc] initWithError:error] autorelease];
+}
+
+- (id)initWithError:(NSError*)error {
+    self = [super initWithName:@"NSError"
+                        reason:[error description]
+                      userInfo:[NSDictionary dictionaryWithObject:error
+                                                           forKey:@"error"]];
+    return self;
 }
 
 @end

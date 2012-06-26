@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.7
+// JRErr.h semver:0.0.8
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -50,10 +50,7 @@ extern NSString * const JRErrDomain;
             }                                                                                                       \
             [[JRErrContext currentContext] pushError:__mergedError];                                                \
             if (__shouldThrow) {                                                                                    \
-                [[NSException exceptionWithName:@"NSError"                                                          \
-                                         reason:[__mergedError description]                                         \
-                                       userInfo:[NSDictionary dictionaryWithObject:__mergedError                    \
-                                                                            forKey:@"error"]] raise];               \
+                @throw [JRErrException exceptionWithError:__mergedError];                                           \
             }                                                                                                       \
         }                                                                                                           \
         _Pragma("clang diagnostic push")                                                                            \
@@ -169,4 +166,11 @@ extern NSString * const JRErrDomain;
 - (void)pushError:(NSError*)error;
 - (NSError*)popError;
 
+@end
+
+//-----------------------------------------------------------------------------------------
+
+@interface JRErrException : NSException
++ (id)exceptionWithError:(NSError*)error;
+- (id)initWithError:(NSError*)error;
 @end
