@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.8
+// JRErr.h semver:0.0.9
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
@@ -100,6 +100,22 @@ extern NSString * const JRErrDomain;
 
 //-----------------------------------------------------------------------------------------
 
+#if defined(JRLogNSError)
+    #define LogJRErr()                                                      \
+        for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
+            JRLogNSError(_errItr);                                          \
+        }                                                                   \
+        [[JRErrContext currentContext].errorStack removeAllObjects];
+#else
+    #define LogJRErr()                                                      \
+        for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
+            NSLog(@"error: %@", _errItr);                                   \
+        }                                                                   \
+        [[JRErrContext currentContext].errorStack removeAllObjects];
+#endif
+
+//-----------------------------------------------------------------------------------------
+
 // Function-macros with optional parameters technique stolen from http://stackoverflow.com/a/8814003/5260
 
 #define returnJRErr(...)            \
@@ -117,37 +133,17 @@ extern NSString * const JRErrDomain;
 #define returnJRErr_1(_successValue) \
     returnJRErr_2(_successValue, nil)
 
-#if defined(JRLogNSError)
-    #define returnJRErr_2(_successValue, _errorValue)                               \
-        if (jrErr) {                                                                \
-            if (error) {                                                            \
-                *error = jrErr;                                                     \
-            } else {                                                                \
-                for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
-                    JRLogNSError(_errItr);                                          \
-                }                                                                   \
-                [[JRErrContext currentContext].errorStack removeAllObjects];        \
-            }                                                                       \
-            return _errorValue;                                                     \
-        } else {                                                                    \
-            return _successValue;                                                   \
-        }
-#else
-    #define returnJRErr_2(_successValue, _errorValue)                               \
-        if (jrErr) {                                                                \
-            if (error) {                                                            \
-                *error = jrErr;                                                     \
-            } else {                                                                \
-                for(NSError *_errItr in [JRErrContext currentContext].errorStack) { \
-                    NSLog(@"error: %@", _errItr);                                   \
-                }                                                                   \
-                [[JRErrContext currentContext].errorStack removeAllObjects];        \
-            }                                                                       \
-            return _errorValue;                                                     \
-        } else {                                                                    \
-            return _successValue;                                                   \
-        }
-#endif
+#define returnJRErr_2(_successValue, _errorValue)   \
+    if (jrErr) {                                    \
+        if (error) {                                \
+            *error = jrErr;                         \
+        } else {                                    \
+            LogJRErr();                             \
+        }                                           \
+        return _errorValue;                         \
+    } else {                                        \
+        return _successValue;                       \
+    }
 
 //----------------------------------------------------------------------------------------- 
 
