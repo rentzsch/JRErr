@@ -143,16 +143,17 @@ extern NSString * const JRErrDomain;
 #define returnJRErr_1(_successValue) \
     returnJRErr_2(_successValue, nil)
 
-#define returnJRErr_2(_successValue, _errorValue)   \
-    if (jrErr) {                                    \
-        if (error) {                                \
-            *error = jrErr;                         \
-        } else {                                    \
-            LogJRErr();                             \
-        }                                           \
-        return _errorValue;                         \
-    } else {                                        \
-        return _successValue;                       \
+#define returnJRErr_2(_successValue, _errorValue)                           \
+    if (jrErr) {                                                            \
+        if (error) {                                                        \
+            *error = jrErr;                                                 \
+            [[JRErrContext currentContext].errorStack removeAllObjects];    \
+        } else {                                                            \
+            LogJRErr();                                                     \
+        }                                                                   \
+        return _errorValue;                                                 \
+    } else {                                                                \
+        return _successValue;                                               \
     }
 
 //----------------------------------------------------------------------------------------- 
