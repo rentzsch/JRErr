@@ -1,4 +1,4 @@
-// JRErr.h semver:0.0.9
+// JRErr.h semver:0.0.10
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
 //   Some rights reserved: http://opensource.org/licenses/MIT
 //   https://github.com/rentzsch/JRErr
