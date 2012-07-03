@@ -68,7 +68,7 @@ extern NSString * const JRErrDomain;
 // in an extra set of parentheses to overcome that the preprocessor doesn't understand Obj-C syntax:
 //     JRPushErrMsg(([NSString stringWithFormat:@"Couldn't open file %@", fileName]), @"Unknown format.");
 
-#define JRPushErrMsg(__failureDescription, __reasonDescription)                                                 \
+#define JRPushErrMsgImpl(__failureDescription, __reasonDescription, __shouldThrow)                              \
     {{                                                                                                          \
         NSDictionary *__userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:                           \
                                    __failureDescription, NSLocalizedDescriptionKey,                             \
@@ -78,10 +78,20 @@ extern NSString * const JRErrDomain;
                                    [NSString stringWithUTF8String:__PRETTY_FUNCTION__], @"__PRETTY_FUNCTION__", \
                                    [NSThread callStackSymbols], @"callStack",                                   \
                                    nil];                                                                        \
-        [[JRErrContext currentContext] pushError:[NSError errorWithDomain:[[self class] description]            \
-                                                                     code:-1                                    \
-                                                                 userInfo:__userInfo]];                         \
+        NSError *__err = [NSError errorWithDomain:[[self class] description]                                    \
+                                             code:-1                                                            \
+                                         userInfo:__userInfo];                                                  \
+        [[JRErrContext currentContext] pushError:__err];                                                        \
+        if (__shouldThrow) {                                                                                    \
+            @throw [JRErrException exceptionWithError:__err];                                                   \
+        }                                                                                                       \
     }}
+
+#define JRPushErrMsg(__failureDescription, __reasonDescription)     \
+    JRPushErrMsgImpl(__failureDescription, __reasonDescription, NO)
+
+#define JRThrowErrMsg(__failureDescription, __reasonDescription)    \
+    JRPushErrMsgImpl(__failureDescription, __reasonDescription, YES)
 
 //-----------------------------------------------------------------------------------------
 
