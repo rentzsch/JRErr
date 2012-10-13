@@ -1,11 +1,26 @@
-// JRErr.m semver:0.0.10
+// JRErr.m semver:0.0.11
 //   Copyright (c) 2012 Jonathan 'Wolf' Rentzsch: http://rentzsch.com
-//   Some rights reserved: http://opensource.org/licenses/MIT
+//   Some rights reserved: http://opensource.org/licenses/mit
 //   https://github.com/rentzsch/JRErr
 
 #import "JRErr.h"
 
 NSString * const JRErrDomain = @"JRErrDomain";
+
+BOOL JRErrStandardDecider(const char *codeResultType, intptr_t codeResultValue) {
+    if (codeResultValue) {
+        return YES; // codeResult indicates success
+    } else {
+        return NO; // codeResult indicates failure
+    }
+}
+
+void JRErrStandardAnnotator(const char *codeResultType,
+                            intptr_t codeResultValue,
+                            NSMutableDictionary *errorUserInfo)
+{
+	// No-op (here primarily for documentation purposes).
+}
 
 void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info) {
     JRErrContext *errContext = [JRErrContext currentContext];

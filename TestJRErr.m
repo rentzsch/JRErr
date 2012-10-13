@@ -15,6 +15,35 @@
 - (id)returnNilPtrAndAnError:(NSError**)error;
 @end
 
+//-----------------------------------------------------------------------------------------
+
+typedef enum {
+	WeirdError_OK = 42,
+	WeirdError_Error = -666
+}	WeirdError;
+
+static NSString* NSStringFromWeirdError(WeirdError weirdErr) {
+    return weirdErr == WeirdError_OK ? @"WeirdError_OK" : @"WeirdError_Error";
+}
+
+static WeirdError ReturnWeirdOK() { return WeirdError_OK; }
+static WeirdError ReturnWeirdError() { return WeirdError_Error; }
+static BOOL WeirdErrorDecider(const char *codeResultType,
+                              intptr_t codeResultValue)
+{
+    return codeResultValue == WeirdError_OK;
+}
+static void WeirdErrorAnnotator(const char *codeResultType,
+                                intptr_t codeResultValue,
+                                NSMutableDictionary *errorUserInfo)
+{
+    [errorUserInfo setObject:NSStringFromWeirdError((int)codeResultValue) forKey:@"weirdErrName"];
+}
+
+#define JRPushWeirdErr(CODE)  JRPushErrImpl(CODE, WeirdErrorDecider, WeirdErrorAnnotator, kPushJRErr)
+
+//-----------------------------------------------------------------------------------------
+
 int main (int argc, const char * argv[]) {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     
@@ -83,6 +112,31 @@ int main (int argc, const char * argv[]) {
     assert(jrErr);
     assert([[jrErr domain] isEqualToString:@"TestJRErrDomain"]);
     assert([jrErr code] == 42);
+    [[JRErrContext currentContext] popError];
+    assert(!jrErr);
+    
+    assert(!jrErr);
+    JRPushErr(ReturnWeirdOK());
+    assert(!jrErr); // because 42 isn't 0 (proof std JRPushErr isn't enough)
+    [[JRErrContext currentContext] popError];
+    assert(!jrErr);
+    
+    assert(!jrErr);
+    JRPushErr(ReturnWeirdError());
+    assert(!jrErr); // because -666 isn't 0 (proof std JRPushErr isn't enough)
+    [[JRErrContext currentContext] popError];
+    assert(!jrErr);
+    
+    assert(!jrErr);
+    JRPushWeirdErr(ReturnWeirdOK());
+    assert(!jrErr);
+    [[JRErrContext currentContext] popError];
+    assert(!jrErr);
+    
+    assert(!jrErr);
+    JRPushWeirdErr(ReturnWeirdError());
+    assert(jrErr);
+    assert([[[jrErr userInfo] objectForKey:@"weirdErrName"] isEqualToString:NSStringFromWeirdError(WeirdError_Error)]);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
     
