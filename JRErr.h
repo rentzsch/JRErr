@@ -17,7 +17,8 @@
 
 #define jrErr [[JRErrContext currentContext] currentError]
 
-extern NSString * const JRErrDomain;
+extern NSString * const NS(JRErrDomain);
+#define JRErrDomain NS(JRErrDomain)
 
 //-----------------------------------------------------------------------------------------
 
