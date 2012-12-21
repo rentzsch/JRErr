@@ -190,7 +190,7 @@ extern void JRErrStandardAnnotator(const char *codeResultType,
 }
 @property(retain)  NSMutableArray  *errorStack;
 
-+ (JRErrContext*)currentContext;
++ (NS(JRErrContext)*)currentContext;
 
 - (NSError*)currentError;
 
