@@ -5,9 +5,20 @@
 
 #import <Foundation/Foundation.h>
 
+#ifndef NS
+    #ifdef NS_NAMESPACE
+        #define JRNS_CONCAT_TOKENS(a,b) a##_##b
+        #define JRNS_EVALUATE(a,b) JRNS_CONCAT_TOKENS(a,b)
+        #define NS(original_name) JRNS_EVALUATE(NS_NAMESPACE, original_name)
+    #else
+        #define NS(original_name) original_name
+    #endif
+#endif
+
 #define jrErr [[JRErrContext currentContext] currentError]
 
-extern NSString * const JRErrDomain;
+extern NSString * const NS(JRErrDomain);
+#define JRErrDomain NS(JRErrDomain)
 
 //-----------------------------------------------------------------------------------------
 
@@ -171,7 +182,7 @@ extern void JRErrStandardAnnotator(const char *codeResultType,
 
 //----------------------------------------------------------------------------------------- 
 
-@interface JRErrContext : NSObject {
+@interface NS(JRErrContext) : NSObject {
 #ifndef NOIVARS
   @protected
     NSMutableArray  *errorStack;
@@ -179,7 +190,7 @@ extern void JRErrStandardAnnotator(const char *codeResultType,
 }
 @property(retain)  NSMutableArray  *errorStack;
 
-+ (JRErrContext*)currentContext;
++ (NS(JRErrContext)*)currentContext;
 
 - (NSError*)currentError;
 
@@ -187,10 +198,12 @@ extern void JRErrStandardAnnotator(const char *codeResultType,
 - (NSError*)popError;
 
 @end
+#define JRErrContext NS(JRErrContext)
 
 //-----------------------------------------------------------------------------------------
 
-@interface JRErrException : NSException
+@interface NS(JRErrException) : NSException
 + (id)exceptionWithError:(NSError*)error;
 - (id)initWithError:(NSError*)error;
 @end
+#define JRErrException NS(JRErrException)
