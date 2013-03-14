@@ -1,8 +1,18 @@
-### Status
+# JRErr
 
-As reflected by its [semver](http://semver.org/) of 0.0.x, JRErr is still busy being born. It has stabilized a great bit, but I'm not going to rule out code-breaking changes until I ship my first app that uses it. Then I'll slap a 1.0 on it and you'll be able to use it sans code-breakage fears.
+JRErr is a small (two-file) source library that eases correct use of `NSError`.
 
-### Executive Summary
+While NSError by itself is a fine class, there's lots of reasons to hate Apple's standard NSError implementation pattern:
+
+* Every method needs a local `NSError*` to pass to other methods. Let's call this duplicative variable `localError`.
+
+* Because you [can't examine `localError` directly to detect errors](http://rentzsch.tumblr.com/post/260201639/nserror-is-hard), you'll need another, related variable. Let's call that duplicative related variable `hasError`.
+
+* Repetitively testing `hasError` and indenting all your do-real-work code inside a series of `if` statements is mucho lame-o. Dude, there's these things called exceptions...
+
+* It takes eight lines of boilerplate to return your method's result and correctly return an encountered error or log it. That's seven lines too many.
+
+## Example
 
 JRErr reduces these 84 lines of code:
 
@@ -131,21 +141,7 @@ JRErr reduces these 84 lines of code:
 
 …and fortifies its generated NSErrors with extra error-origination information (`__FILE__`, `__LINE__`, `__PRETTY__FUNCTION__`, the code within JRThrowErr()'s argument in string form and even the stack trace).
 
-### Description
-
-JRErr is a small (two-file) source library that eases correct use of `NSError`.
-
-While NSError by itself is a fine class, there's lots of reasons to hate Apple's standard NSError implementation pattern:
-
-* Every method needs a local `NSError*` to pass to other methods. Let's call this duplicative variable `localError`.
-
-* Because you [can't examine `localError` directly to detect errors](http://rentzsch.tumblr.com/post/260201639/nserror-is-hard), you'll need another, related variable. Let's call that duplicative related variable `hasError`.
-
-* Repetitively testing `hasError` and indenting all your do-real-work code inside a series of `if` statements is mucho lame-o. Dude, there's these things called exceptions...
-
-* It takes eight lines of boilerplate to return your method's result and correctly return an encountered error or log it. That's seven lines too many.
-
-### Theory of Operation
+## Theory of Operation
 
 JRErr maintains a thread-local object (`JRErrContext`) that maintains a stack of `NSError`s.
 
@@ -160,3 +156,9 @@ Errors are temporarily pushed onto the thread's error stack as they are encounte
 * 1 arguments: assumes the method's signature returns a pointer. If no errors are on the stack, returns its argument. Otherwise returns nil.
 
 * 2 arguments: offers complete control of the method's return value. If no errors are on the stack, returns its first argument. Otherwise returns its second argument.
+
+## Version History
+
+### v1.0.0: Mar 14 2013
+
+* First stable release. Work begins on v2.x...
