@@ -1,4 +1,4 @@
-#import <Foundation/Foundation.h>
+#import "JRErrTest.h"
 #import "JRErr.h"
 
 @interface NSObject (TestJRErr)
@@ -44,9 +44,13 @@ static void WeirdErrorAnnotator(const char *codeResultType,
 
 //-----------------------------------------------------------------------------------------
 
-int main (int argc, const char * argv[]) {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    
+#if __has_feature(objc_arc)
+    #define autorelease self
+#endif
+
+@implementation JRErrTest
+
+- (void)testEverything {
     NSObject *obj = [[[NSObject alloc] init] autorelease];
     
     assert(!jrErr);
@@ -139,11 +143,11 @@ int main (int argc, const char * argv[]) {
     assert([[[jrErr userInfo] objectForKey:@"weirdErrName"] isEqualToString:NSStringFromWeirdError(WeirdError_Error)]);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
-    
-    [pool drain];
-    printf("success\n");
-    return 0;
 }
+
+@end
+
+//-----------------------------------------------------------------------------------------
 
 @implementation NSObject (TestJRErr)
 
