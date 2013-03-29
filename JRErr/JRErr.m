@@ -7,16 +7,77 @@
 
 NSString * const JRErrDomain = @"JRErrDomain";
 
-BOOL JRErrStandardDecider(const char *codeResultType, intptr_t codeResultValue) {
-    if (codeResultValue) {
-        return YES; // codeResult indicates success
+static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext) {
+    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                       [NSString stringWithUTF8String:callContext->file], @"__FILE__",
+                                       [NSNumber numberWithInt:callContext->line], @"__LINE__",
+                                       [NSString stringWithUTF8String:callContext->function], @"__PRETTY_FUNCTION__",
+                                       [NSString stringWithUTF8String:callContext->expr], @"EXPR",
+                                       [NSThread callStackSymbols], @"callStack",
+                                       nil];
+    if (callContext->annotator) {
+        callContext->annotator(callContext->error,
+                               callContext->exprResultType,
+                               exprResultValue,
+                               userInfo);
+    }
+    NSError *mergedError;
+    if (callContext->error) {
+        [userInfo setValuesForKeysWithDictionary:[callContext->error userInfo]];
+        mergedError = [NSError errorWithDomain:[callContext->error domain]
+                                          code:[callContext->error code]
+                                      userInfo:userInfo];
     } else {
-        return NO; // codeResult indicates failure
+        mergedError = [NSError errorWithDomain:JRErrDomain
+                                          code:-1
+                                      userInfo:userInfo];
+    }
+    [[JRErrContext currentContext] pushError:mergedError];
+    if (callContext->shouldThrow) {
+        @throw [JRErrException exceptionWithError:mergedError];
     }
 }
 
-void JRErrStandardAnnotator(const char *codeResultType,
-                            intptr_t codeResultValue,
+#define CALL_BLOCK_IMPL(TYPE) \
+    TYPE result = block(); \
+    if (callContext->detector(callContext->exprResultType, (intptr_t)result)) { \
+        CreateAndReportError((intptr_t)result, callContext); \
+    } \
+    return result;
+
+id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext) {
+    CALL_BLOCK_IMPL(id);
+}
+
+BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext) {
+    CALL_BLOCK_IMPL(BOOL);
+}
+
+void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext) {
+    CALL_BLOCK_IMPL(void*);
+}
+
+void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext) {
+    block();
+    if (callContext->detector(callContext->exprResultType, -1)) {
+        CreateAndReportError(-1, callContext);
+    }
+}
+
+//-----------------------------------------------------------------------------------------
+
+BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue) {
+    if (codeResultType[1] == 0 && codeResultType[0] == 'c') {
+        // @encode(BOOL)
+        return codeResultValue == NO;
+    } else {
+        return codeResultValue ? YES : NO;
+    }
+}
+
+void JRErrStandardAnnotator(NSError *error,
+                            const char *exprResultType,
+                            intptr_t exprResultValue,
                             NSMutableDictionary *errorUserInfo)
 {
 	// No-op (here primarily for documentation purposes).

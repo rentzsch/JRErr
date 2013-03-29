@@ -22,66 +22,59 @@ extern NSString * const NS(JRErrDomain);
 
 //-----------------------------------------------------------------------------------------
 
-#define JRPushErrImpl(CODE, __decider, __annotator, __shouldThrow)                                                  \
-    ({                                                                                                              \
-        NSError *__jrErr = nil;                                                                                     \
-        NSError **jrErrRef __attribute__((unused)) = &__jrErr;                                                      \
-        BOOL __hasVoidReturnType;                                                                                   \
-        intptr_t __codeResult = (intptr_t) __builtin_choose_expr(__builtin_types_compatible_p(typeof(CODE), void),  \
-            (__hasVoidReturnType = YES, CODE, -1),                                                                  \
-            (__hasVoidReturnType = NO, CODE));                                                                      \
-        BOOL __hasError = NO;                                                                                       \
-        if (__hasVoidReturnType) {                                                                                  \
-            if (__jrErr) {                                                                                          \
-                __hasError = YES;                                                                                   \
-            }                                                                                                       \
-        } else {                                                                                                    \
-            __hasError = !__decider(@encode(typeof(CODE)), __codeResult);                                           \
-        }                                                                                                           \
-        if (__hasError) {                                                                                           \
-            NSMutableDictionary *__userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:                    \
-                [NSString stringWithUTF8String:__FILE__], @"__FILE__",                                              \
-                [NSNumber numberWithInt:__LINE__], @"__LINE__",                                                     \
-                [NSString stringWithUTF8String:__PRETTY_FUNCTION__], @"__PRETTY_FUNCTION__",                        \
-                [NSString stringWithUTF8String:#CODE], @"CODE",                                                     \
-                [NSThread callStackSymbols], @"callStack",                                                          \
-                nil];                                                                                               \
-            if (__annotator) {                                                                                      \
-                __annotator(@encode(typeof(CODE)), __codeResult, __userInfo);                                       \
-            }                                                                                                       \
-            NSError *__mergedError;                                                                                 \
-            if (__jrErr) {                                                                                          \
-                [__userInfo setValuesForKeysWithDictionary:[__jrErr userInfo]];                                     \
-                __mergedError = [NSError errorWithDomain:[__jrErr domain]                                           \
-                                                     code:[__jrErr code]                                            \
-                                                 userInfo:__userInfo];                                              \
-            } else {                                                                                                \
-                __mergedError = [NSError errorWithDomain:JRErrDomain                                                \
-                                                     code:-1                                                        \
-                                                 userInfo:__userInfo];                                              \
-            }                                                                                                       \
-            [[JRErrContext currentContext] pushError:__mergedError];                                                \
-            if (__shouldThrow) {                                                                                    \
-                @throw [JRErrException exceptionWithError:__mergedError];                                           \
-            }                                                                                                       \
-        }                                                                                                           \
-        _Pragma("clang diagnostic push")                                                                            \
-        _Pragma("clang diagnostic ignored \"-Wunused-value\"")                                                      \
-        (typeof(CODE))__codeResult;                                                                                 \
-        _Pragma("clang diagnostic pop")                                                                             \
-    })
+// Given an expression's encoded result type and result value, decide if it represents an error.
+typedef BOOL (*JRErrDetector)(const char *exprResultType, intptr_t exprResultValue); // YES indicates an error was detected
+extern BOOL JRErrStandardDetector(const char *exprResultType, intptr_t codeResultValue);
 
-extern BOOL JRErrStandardDecider(const char *codeResultType,
-                                 intptr_t codeResultValue); // NO indicates an error was detected
-extern void JRErrStandardAnnotator(const char *codeResultType,
-                                   intptr_t codeResultValue,
+typedef void (*JRErrAnnotator)(NSError *error,
+                               const char *exprResultType,
+                               intptr_t exprResultValue,
+                               NSMutableDictionary *errorUserInfo);
+extern void JRErrStandardAnnotator(NSError *error,
+                                   const char *exprResultType,
+                                   intptr_t exprResultValue,
                                    NSMutableDictionary *errorUserInfo);
+
+typedef struct {
+    const char                   *expr;
+    const char                   *exprResultType;
+    __unsafe_unretained NSError  *error;
+    JRErrDetector                detector;
+    JRErrAnnotator               annotator;
+    BOOL                         shouldThrow;
+    const char                   *file;
+    unsigned                     line;
+    const char                   *function;
+} JRErrCallContext;
+
+id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext);
+BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext);
+void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext);
+void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext);
+
+#define JRPushErrImpl(EXPR, detector, annotator, shouldThrow) \
+({ \
+    NSError *__jrErr = nil; \
+    NSError **jrErrRef __attribute__((unused)) = &__jrErr; \
+    JRErrCallContext callContext = { \
+        #EXPR, \
+        @encode(typeof(EXPR)), \
+        __jrErr, \
+        detector, \
+        annotator, \
+        shouldThrow, \
+        __FILE__, \
+        __LINE__, \
+        __PRETTY_FUNCTION__, \
+    }; \
+    xcall_block( ^{ return EXPR; }, &callContext); \
+})
 
 #define kPushJRErr   NO
 #define kThrowJRErr  YES
 
-#define JRPushErr(CODE)   JRPushErrImpl(CODE, JRErrStandardDecider, JRErrStandardAnnotator, kPushJRErr)
-#define JRThrowErr(CODE)  JRPushErrImpl(CODE, JRErrStandardDecider, JRErrStandardAnnotator, kThrowJRErr)
+#define JRPushErr(CODE)   JRPushErrImpl(CODE, &JRErrStandardDetector, &JRErrStandardAnnotator, kPushJRErr)
+#define JRThrowErr(CODE)  JRPushErrImpl(CODE, &JRErrStandardDetector, &JRErrStandardAnnotator, kThrowJRErr)
 
 //-----------------------------------------------------------------------------------------
 
