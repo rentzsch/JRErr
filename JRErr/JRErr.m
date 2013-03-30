@@ -79,7 +79,7 @@ BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue,
             return *jrErrRef ? YES : NO;
             break;
         default:
-            return codeResultValue ? YES : NO;
+            return codeResultValue ? NO : YES;
             break;
     }
     
