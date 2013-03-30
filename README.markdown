@@ -141,9 +141,66 @@ JRErr reduces these 84 lines of code:
 
 …and fortifies its generated NSErrors with extra error-origination information (`__FILE__`, `__LINE__`, `__PRETTY__FUNCTION__`, the code within JRThrowErr()'s argument in string form and even the stack trace).
 
+## Not Just Exceptions
+
+I used JRThrowErr() in the example above since the difference is more immediately-understandable and dramatic, but you can also use JRErr without exceptions (see "ARC Exception Caveats" below for the issue involved).
+
+Here's the same example from above using JRPushErr() instead of JRThrowErr():
+
+    - (BOOL)incrementBuildNumberInFile:(NSURL*)fileURL
+                                 error:(NSError**)error
+    {
+        NSParameterAssert(fileURL);
+        
+        static NSString *const sErrorDescription = @"Unrecognized File Format";
+        static NSString *const sBuildNumberKey = @"BuildNumber";
+        
+        NSData *fileData = JRPushErr([NSData dataWithContentsOfURL:fileURL
+                                                           options:0
+                                                             error:jrErrRef]);
+        
+        NSMutableDictionary *fileDict = nil;
+        if (!jrErr) {
+            fileDict = JRPushErr([NSPropertyListSerialization propertyListWithData:fileData
+                                                                 options:NSPropertyListMutableContainers
+                                                                  format:NULL
+                                                                   error:jrErrRef]);
+        }
+        
+        NSNumber *buildNumber = nil;
+        if (!jrErr) {
+            buildNumber = [fileDict objectForKey:sBuildNumberKey];
+            
+            if (buildNumber) {
+                if (![buildNumber isKindOfClass:[NSNumber class]]) {
+                    JRPushErrMsg(sErrorDescription, @"BuildNumber isn't a Number");
+                }
+            } else {
+                JRPushErrMsg(sErrorDescription, @"BuildNumber is missing");
+            }
+        }
+        
+        if (!jrErr) {
+            buildNumber = [NSNumber numberWithInt:[buildNumber intValue] + 1];
+            [fileDict setObject:buildNumber forKey:sBuildNumberKey];
+            fileData = JRPushErr([NSPropertyListSerialization dataWithPropertyList:fileDict
+                                                                            format:NSPropertyListXMLFormat_v1_0
+                                                                           options:0
+                                                                             error:jrErrRef]);
+        }
+        
+        if (!jrErr) {
+            JRPushErr([fileData writeToURL:fileURL options:NSDataWritingAtomic error:jrErrRef]);
+        }
+        
+        returnJRErr();
+    }
+
+As you can see, it's the same basic repetitive-error-testing flow with the direct-use example, but JRErr does the hasError/localError bookkeeping for you, still fortifies its generated NSErrors with extra error-origination and handles returning the error if requested or logging it if not.
+
 ## Theory of Operation
 
-JRErr maintains a thread-local object (`JRErrContext`) that maintains a stack of `NSError`s.
+JRErr maintains a thread-local object (`JRErrContext`) that maintains a stack of NSErrors.
 
 Errors are temporarily pushed onto the thread's error stack as they are encountered (via `JRPushErr()` or `JRThrowErr()`). Errors should only exist on the stack for short periods of time: usually just the span of a single method.
 
@@ -156,6 +213,26 @@ Errors are temporarily pushed onto the thread's error stack as they are encounte
 * 1 arguments: assumes the method's signature returns a pointer. If no errors are on the stack, returns its argument. Otherwise returns nil.
 
 * 2 arguments: offers complete control of the method's return value. If no errors are on the stack, returns its first argument. Otherwise returns its second argument.
+
+## ARC Exception Caveats
+
+If you want to use JRThrowErr() with ARC, you'll want to consider enabling the `-fobjc-arc-exceptions` option.
+
+(You needn't worry if you're using JRPushErr() and/or MRC.)
+
+Turns out [ARC leaks by default](http://clang.llvm.org/docs/AutomaticReferenceCounting.html#exceptions) when an exception is thrown.
+
+Whether you enable `-fobjc-arc-exceptions` depends on the nature of the code using JRThrowErr():
+
+* If an error is unlikely and you're just writing Good Error-Handling Code, then leaking isn't the end of the world. Leave it off.
+
+* If an error is likely and this code will be called repeatedly, either enable `-fobjc-arc-exceptions` (easy) or rewrite it to use JRPushErr (harder) or rewrite it to use MRC (harder).
+
+The aforelinked document has this to say:
+
+> Making code exceptions-safe by default would impose severe runtime and code size penalties on code that typically does not actually care about exceptions safety.
+
+I wouldn't let that scare you off ARC and exceptions altogether. The document goes on to state it's mostly the same machinery used by C++ exceptions, whose runtime cost is only realized when exceptions are thrown. This is known as the zero-cost model: there's no time overhead when exceptions don't occur.
 
 ## Version History
 
