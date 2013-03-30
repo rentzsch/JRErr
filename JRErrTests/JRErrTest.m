@@ -28,19 +28,30 @@ static NSString* NSStringFromWeirdError(WeirdError weirdErr) {
 
 static WeirdError ReturnWeirdOK() { return WeirdError_OK; }
 static WeirdError ReturnWeirdError() { return WeirdError_Error; }
-static BOOL WeirdErrorDecider(const char *codeResultType,
-                              intptr_t codeResultValue)
+
+static WeirdError __attribute__((overloadable)) JRErrReturnTypeAdapter(WeirdError (^block)(void),
+                                                                       JRErrCallContext *callContext,
+                                                                       NSError **jrErrRef)
 {
-    return codeResultValue == WeirdError_OK;
-}
-static void WeirdErrorAnnotator(const char *codeResultType,
-                                intptr_t codeResultValue,
-                                NSMutableDictionary *errorUserInfo)
-{
-    [errorUserInfo setObject:NSStringFromWeirdError((int)codeResultValue) forKey:@"weirdErrName"];
+    JRErrReturnTypeAdapterImpl(WeirdError);
 }
 
-#define JRPushWeirdErr(CODE)  JRPushErrImpl(CODE, WeirdErrorDecider, WeirdErrorAnnotator, kPushJRErr)
+static BOOL WeirdErrorDetector(const char *exprResultType,
+                               intptr_t codeResultValue,
+                               NSError **jrErrRef)
+{
+    return codeResultValue != WeirdError_OK;
+}
+
+static void WeirdErrorAnnotator(NSError *error,
+                                   const char *exprResultType,
+                                   intptr_t exprResultValue,
+                                   NSMutableDictionary *errorUserInfo)
+{
+    [errorUserInfo setObject:NSStringFromWeirdError((int)exprResultType) forKey:@"weirdErrName"];
+}
+
+#define JRPushWeirdErr(CODE)  JRPushErrImpl(CODE, WeirdErrorDetector, WeirdErrorAnnotator, kPushJRErr)
 
 //-----------------------------------------------------------------------------------------
 
@@ -119,8 +130,6 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
     
-#if 0
-    
     assert(!jrErr);
     JRPushErr(ReturnWeirdOK());
     assert(!jrErr); // because 42 isn't 0 (proof std JRPushErr isn't enough)
@@ -145,7 +154,6 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     assert([[[jrErr userInfo] objectForKey:@"weirdErrName"] isEqualToString:NSStringFromWeirdError(WeirdError_Error)]);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
-#endif
 }
 
 @end

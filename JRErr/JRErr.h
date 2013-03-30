@@ -5,6 +5,10 @@
 
 #import <Foundation/Foundation.h>
 
+//-----------------------------------------------------------------------------------------
+// Poor man's namespacing support.
+// See http://rentzsch.tumblr.com/post/40806448108/ns-poor-mans-namespacing-for-objective-c
+
 #ifndef NS
     #ifdef NS_NAMESPACE
         #define JRNS_CONCAT_TOKENS(a,b) a##_##b
@@ -15,10 +19,11 @@
     #endif
 #endif
 
-#define jrErr [[JRErrContext currentContext] currentError]
+//-----------------------------------------------------------------------------------------
+// jrErr is the seemingly-global variable that actually accesses a thread-local stack of
+// NSErrors.
 
-extern NSString * const NS(JRErrDomain);
-#define JRErrDomain NS(JRErrDomain)
+#define jrErr [[JRErrContext currentContext] currentError]
 
 //-----------------------------------------------------------------------------------------
 
@@ -26,6 +31,7 @@ extern NSString * const NS(JRErrDomain);
 typedef BOOL (*JRErrDetector)(const char *exprResultType, intptr_t exprResultValue, NSError **jrErrRef); // YES indicates an error was detected
 extern BOOL JRErrStandardDetector(const char *exprResultType, intptr_t codeResultValue, NSError **jrErrRef);
 
+//
 typedef void (*JRErrAnnotator)(NSError *error,
                                const char *exprResultType,
                                intptr_t exprResultValue,
@@ -34,6 +40,8 @@ extern void JRErrStandardAnnotator(NSError *error,
                                    const char *exprResultType,
                                    intptr_t exprResultValue,
                                    NSMutableDictionary *errorUserInfo);
+
+//
 
 typedef struct {
     const char      *expr;
@@ -46,10 +54,25 @@ typedef struct {
     const char      *function;
 } JRErrCallContext;
 
-id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+//-----------------------------------------------------------------------------------------
+// JRErrReturnTypeAdapter wraps and normalizes expressions
+//
+
+id     __attribute__((overloadable)) JRErrReturnTypeAdapter(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+BOOL   __attribute__((overloadable)) JRErrReturnTypeAdapter(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+void*  __attribute__((overloadable)) JRErrReturnTypeAdapter(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+void   __attribute__((overloadable)) JRErrReturnTypeAdapter(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+
+extern void JRErrCreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef);
+
+#define JRErrReturnTypeAdapterImpl(TYPE) \
+    TYPE result = block(); \
+    if (callContext->detector(callContext->exprResultType, (intptr_t)result, jrErrRef)) { \
+        JRErrCreateAndReportError((intptr_t)result, callContext, jrErrRef); \
+    } \
+    return result;
+
+//----------------------------------------------------------------------------------------- 
 
 #define JRPushErrImpl(EXPR, detector, annotator, shouldThrow) \
 ({ \
@@ -65,7 +88,7 @@ void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCal
         __LINE__, \
         __PRETTY_FUNCTION__, \
     }; \
-    xcall_block( ^{ return EXPR; }, &$callContext, jrErrRef); \
+    JRErrReturnTypeAdapter( ^{ return EXPR; }, &$callContext, jrErrRef); \
 })
 
 #define kPushJRErr   NO
@@ -198,3 +221,9 @@ void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCal
 - (id)initWithError:(NSError*)error;
 @end
 #define JRErrException NS(JRErrException)
+
+//-----------------------------------------------------------------------------------------
+// When JRErr need to create a new NSError, it sets the error domain to JRErrDomain.
+
+extern NSString * const NS(JRErrDomain);
+#define JRErrDomain NS(JRErrDomain)

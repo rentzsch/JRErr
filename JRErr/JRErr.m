@@ -9,97 +9,6 @@
     #define autorelease self
 #endif
 
-NSString * const JRErrDomain = @"JRErrDomain";
-
-static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef) {
-    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                       [NSString stringWithUTF8String:callContext->file], @"__FILE__",
-                                       [NSNumber numberWithInt:callContext->line], @"__LINE__",
-                                       [NSString stringWithUTF8String:callContext->function], @"__PRETTY_FUNCTION__",
-                                       [NSString stringWithUTF8String:callContext->expr], @"EXPR",
-                                       [NSThread callStackSymbols], @"callStack",
-                                       nil];
-    if (callContext->annotator) {
-        callContext->annotator(*jrErrRef,
-                               callContext->exprResultType,
-                               exprResultValue,
-                               userInfo);
-    }
-    NSError *mergedError;
-    if (*jrErrRef) {
-        [userInfo setValuesForKeysWithDictionary:[*jrErrRef userInfo]];
-        mergedError = [NSError errorWithDomain:[*jrErrRef domain]
-                                          code:[*jrErrRef code]
-                                      userInfo:userInfo];
-    } else {
-        mergedError = [NSError errorWithDomain:JRErrDomain
-                                          code:-1
-                                      userInfo:userInfo];
-    }
-    [[JRErrContext currentContext] pushError:mergedError];
-    if (callContext->shouldThrow) {
-        @throw [JRErrException exceptionWithError:mergedError];
-    }
-}
-
-#define CALL_BLOCK_IMPL(TYPE) \
-    TYPE result = block(); \
-    if (callContext->detector(callContext->exprResultType, (intptr_t)result, jrErrRef)) { \
-        CreateAndReportError((intptr_t)result, callContext, jrErrRef); \
-    } \
-    return result;
-
-id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    CALL_BLOCK_IMPL(id);
-}
-
-BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    CALL_BLOCK_IMPL(BOOL);
-}
-
-void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    CALL_BLOCK_IMPL(void*);
-}
-
-void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    block();
-    if (callContext->detector(callContext->exprResultType, 0, jrErrRef)) {
-        CreateAndReportError(-1, callContext, jrErrRef);
-    }
-}
-
-//-----------------------------------------------------------------------------------------
-
-BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue, NSError **jrErrRef) {
-    switch (codeResultType[0]) {
-        case 'c': // @encode(BOOL)
-            return codeResultValue == NO;
-            break;
-        case 'v': // @encode(void)
-            return *jrErrRef ? YES : NO;
-            break;
-        default:
-            return codeResultValue ? NO : YES;
-            break;
-    }
-    
-    NSLog(@"codeResultType: '%s'\n", codeResultType);
-    if (codeResultType[1] == 0 && codeResultType[0] == 'c') {
-        // 
-        return codeResultValue == NO;
-    } else {
-        return codeResultValue ? YES : NO;
-    }
-}
-
-void JRErrStandardAnnotator(NSError *error,
-                            const char *exprResultType,
-                            intptr_t exprResultValue,
-                            NSMutableDictionary *errorUserInfo)
-{
-	// No-op (here primarily for documentation purposes).
-}
-
 void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info) {
     JRErrContext *errContext = [JRErrContext currentContext];
     for (NSError *error in errContext.errorStack) {
@@ -179,3 +88,87 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
 }
 
 @end
+
+
+
+NSString * const JRErrDomain = @"JRErrDomain";
+
+void JRErrCreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef) {
+    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                     [NSString stringWithUTF8String:callContext->file], @"__FILE__",
+                                     [NSNumber numberWithInt:callContext->line], @"__LINE__",
+                                     [NSString stringWithUTF8String:callContext->function], @"__PRETTY_FUNCTION__",
+                                     [NSString stringWithUTF8String:callContext->expr], @"EXPR",
+                                     [NSThread callStackSymbols], @"callStack",
+                                     nil];
+    if (callContext->annotator) {
+        callContext->annotator(*jrErrRef,
+                               callContext->exprResultType,
+                               exprResultValue,
+                               userInfo);
+    }
+    NSError *mergedError;
+    if (*jrErrRef) {
+        [userInfo setValuesForKeysWithDictionary:[*jrErrRef userInfo]];
+        mergedError = [NSError errorWithDomain:[*jrErrRef domain]
+                                          code:[*jrErrRef code]
+                                      userInfo:userInfo];
+    } else {
+        mergedError = [NSError errorWithDomain:JRErrDomain
+                                          code:-1
+                                      userInfo:userInfo];
+    }
+    [[JRErrContext currentContext] pushError:mergedError];
+    if (callContext->shouldThrow) {
+        @throw [JRErrException exceptionWithError:mergedError];
+    }
+}
+
+id     __attribute__((overloadable)) JRErrReturnTypeAdapter(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
+    JRErrReturnTypeAdapterImpl(id);
+}
+
+BOOL   __attribute__((overloadable)) JRErrReturnTypeAdapter(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
+    JRErrReturnTypeAdapterImpl(BOOL);
+}
+
+void*  __attribute__((overloadable)) JRErrReturnTypeAdapter(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
+    JRErrReturnTypeAdapterImpl(void*);
+}
+
+void   __attribute__((overloadable)) JRErrReturnTypeAdapter(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
+    block();
+    if (callContext->detector(callContext->exprResultType, 0, jrErrRef)) {
+        JRErrCreateAndReportError(-1, callContext, jrErrRef);
+    }
+}
+
+BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue, NSError **jrErrRef) {
+    switch (codeResultType[0]) {
+        case 'c': // @encode(BOOL)
+            return codeResultValue == NO;
+            break;
+        case 'v': // @encode(void)
+            return *jrErrRef ? YES : NO;
+            break;
+        default:
+            return codeResultValue ? NO : YES;
+            break;
+    }
+    
+    NSLog(@"codeResultType: '%s'\n", codeResultType);
+    if (codeResultType[1] == 0 && codeResultType[0] == 'c') {
+        //
+        return codeResultValue == NO;
+    } else {
+        return codeResultValue ? YES : NO;
+    }
+}
+
+void JRErrStandardAnnotator(NSError *error,
+                            const char *exprResultType,
+                            intptr_t exprResultValue,
+                            NSMutableDictionary *errorUserInfo)
+{
+	// No-op (here primarily for documentation purposes).
+}
