@@ -46,6 +46,6 @@ end
 
 task :default do
   Rake::Task[:mrc].execute
-  #Rake::Task[:arc].execute # semver-1.x doesn't support ARC
+  Rake::Task[:arc].execute
   Rake::Task[:clean].execute
 end
