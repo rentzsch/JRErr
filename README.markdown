@@ -159,6 +159,22 @@ Errors are temporarily pushed onto the thread's error stack as they are encounte
 
 ## Version History
 
+### v2.0.0b1: Mar 30 2013
+
+* Now ARC compatible (MRC is still supported).
+
+* Clang is now required. Use v1.x if you still need GCC support.
+
+* Common JRErr v1.x-using code should continue to work with v2.x.
+
+	But you'll need to migrate to JRErrExpressionAdapter if you used the Decider and Annotator functionality of v1.x. Don't worry, JRErrExpressionAdapters are better than the old way of doing things.
+
+* v2.x uses a totally different internal mechanism than v1.x.
+
+	v1.x leveraged `intptr_t`, casting, `__builtin_choose_expr`, `__builtin_types_compatible_p`, `@encode` and `typeof()` in fairly tricky ways to allow both void expressions and non-void expressions. 
+
+	Turns that trick doesn't play with ARC. At all. So [v2.x leverages](https://twitter.com/rentzsch/statuses/291616133843402752) block type inference and `__attribute__((overloadable))`. Took a while to figure out, but this is far cooler and less hacky.
+
 ### v1.0.0: Mar 14 2013
 
 * First stable release. Work begins on v2.x...
