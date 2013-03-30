@@ -44,7 +44,7 @@ static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *cal
 
 #define CALL_BLOCK_IMPL(TYPE) \
     TYPE result = block(); \
-    if (callContext->detector(callContext->exprResultType, (intptr_t)result)) { \
+    if (callContext->detector(callContext->exprResultType, (intptr_t)result, jrErrRef)) { \
         CreateAndReportError((intptr_t)result, callContext, jrErrRef); \
     } \
     return result;
@@ -63,16 +63,29 @@ void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCal
 
 void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
     block();
-    if (callContext->detector(callContext->exprResultType, -1)) {
+    if (callContext->detector(callContext->exprResultType, 0, jrErrRef)) {
         CreateAndReportError(-1, callContext, jrErrRef);
     }
 }
 
 //-----------------------------------------------------------------------------------------
 
-BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue) {
+BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue, NSError **jrErrRef) {
+    switch (codeResultType[0]) {
+        case 'c': // @encode(BOOL)
+            return codeResultValue == NO;
+            break;
+        case 'v': // @encode(void)
+            return *jrErrRef ? YES : NO;
+            break;
+        default:
+            return codeResultValue ? YES : NO;
+            break;
+    }
+    
+    NSLog(@"codeResultType: '%s'\n", codeResultType);
     if (codeResultType[1] == 0 && codeResultType[0] == 'c') {
-        // @encode(BOOL)
+        // 
         return codeResultValue == NO;
     } else {
         return codeResultValue ? YES : NO;

@@ -23,8 +23,8 @@ extern NSString * const NS(JRErrDomain);
 //-----------------------------------------------------------------------------------------
 
 // Given an expression's encoded result type and result value, decide if it represents an error.
-typedef BOOL (*JRErrDetector)(const char *exprResultType, intptr_t exprResultValue); // YES indicates an error was detected
-extern BOOL JRErrStandardDetector(const char *exprResultType, intptr_t codeResultValue);
+typedef BOOL (*JRErrDetector)(const char *exprResultType, intptr_t exprResultValue, NSError **jrErrRef); // YES indicates an error was detected
+extern BOOL JRErrStandardDetector(const char *exprResultType, intptr_t codeResultValue, NSError **jrErrRef);
 
 typedef void (*JRErrAnnotator)(NSError *error,
                                const char *exprResultType,
