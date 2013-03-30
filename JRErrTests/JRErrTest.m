@@ -59,13 +59,13 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
     
-#if 0
-    
     assert(!jrErr);
     JRPushErr([obj returnYesAndAnError:jrErrRef]);
     assert(!jrErr);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
+    
+#if 0
     
     assert(!jrErr);
     JRPushErr([obj returnNoAndNoError:jrErrRef]);
