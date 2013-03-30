@@ -20,82 +20,61 @@
 #endif
 
 //-----------------------------------------------------------------------------------------
-// jrErr is the seemingly-global variable that actually accesses a thread-local stack of
-// NSErrors.
+// jrErr provides easy access to the top of the thread-local NSError stack.
 
 #define jrErr [[JRErrContext currentContext] currentError]
 
 //-----------------------------------------------------------------------------------------
-
-// Given an expression's encoded result type and result value, decide if it represents an error.
-typedef BOOL (*JRErrDetector)(const char *exprResultType, intptr_t exprResultValue, NSError **jrErrRef); // YES indicates an error was detected
-extern BOOL JRErrStandardDetector(const char *exprResultType, intptr_t codeResultValue, NSError **jrErrRef);
-
-//
-typedef void (*JRErrAnnotator)(NSError *error,
-                               const char *exprResultType,
-                               intptr_t exprResultValue,
-                               NSMutableDictionary *errorUserInfo);
-extern void JRErrStandardAnnotator(NSError *error,
-                                   const char *exprResultType,
-                                   intptr_t exprResultValue,
-                                   NSMutableDictionary *errorUserInfo);
-
-//
+// Encapsulates expression location into a struct to simplify function signatures.
+// I'd like to put the NSError** in here but man ARC raises a stink about Obj-C pointers in
+// C structs, and I'm not about to suffer a dynamic memory allocation for each
+// JRPushErr()/JRThrowErr() use.
 
 typedef struct {
     const char      *expr;
-    const char      *exprResultType;
-    JRErrDetector   detector;
-    JRErrAnnotator  annotator;
-    BOOL            shouldThrow;
     const char      *file;
     unsigned        line;
     const char      *function;
-} JRErrCallContext;
+    BOOL            shouldThrow;
+} JRErrExpression;
 
 //-----------------------------------------------------------------------------------------
-// JRErrReturnTypeAdapter wraps and normalizes expressions
-//
+// JRErrExpressionAdapter wraps and normalizes expressions. This is your extension point
+// for handling expressions whose types aren't handled by JRErr directly.
 
-id     __attribute__((overloadable)) JRErrReturnTypeAdapter(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-BOOL   __attribute__((overloadable)) JRErrReturnTypeAdapter(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-void*  __attribute__((overloadable)) JRErrReturnTypeAdapter(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
-void   __attribute__((overloadable)) JRErrReturnTypeAdapter(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+id     __attribute__((overloadable)) JRErrExpressionAdapter(id     (^block)(void), JRErrExpression *expression, NSError **jrErrRef);
+BOOL   __attribute__((overloadable)) JRErrExpressionAdapter(BOOL   (^block)(void), JRErrExpression *expression, NSError **jrErrRef);
+void*  __attribute__((overloadable)) JRErrExpressionAdapter(void*  (^block)(void), JRErrExpression *expression, NSError **jrErrRef);
+void   __attribute__((overloadable)) JRErrExpressionAdapter(void   (^block)(void), JRErrExpression *expression, NSError **jrErrRef);
 
-extern void JRErrCreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef);
+//-----------------------------------------------------------------------------------------
+// Use JRErrReportError in your JRErrExpressionAdapter extension to report detected errors.
 
-#define JRErrReturnTypeAdapterImpl(TYPE) \
-    TYPE result = block(); \
-    if (callContext->detector(callContext->exprResultType, (intptr_t)result, jrErrRef)) { \
-        JRErrCreateAndReportError((intptr_t)result, callContext, jrErrRef); \
-    } \
-    return result;
+extern void JRErrReportError(JRErrExpression *expression, NSError *error, NSDictionary *additionalErrorUserInfo);
 
-//----------------------------------------------------------------------------------------- 
+//-----------------------------------------------------------------------------------------
+// Along with jrErr, this section provides the most-commonplace interface to JRErr. That
+// would be JRPushErr()/JRThrowErr() and their jrErrRef magic.
 
-#define JRPushErrImpl(EXPR, detector, annotator, shouldThrow) \
+#define JRPushErrImpl(EXPR, shouldThrow) \
 ({ \
-    NSError * __autoreleasing $jrErr = nil; \
-    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &$jrErr; \
-    JRErrCallContext $callContext = { \
+    NSError * __autoreleasing $$jrErr = nil; \
+    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &$$jrErr; \
+    JRErrExpression $$expression = { \
         #EXPR, \
-        @encode(typeof(EXPR)), \
-        detector, \
-        annotator, \
-        shouldThrow, \
         __FILE__, \
         __LINE__, \
         __PRETTY_FUNCTION__, \
+        shouldThrow, \
     }; \
-    JRErrReturnTypeAdapter( ^{ return EXPR; }, &$callContext, jrErrRef); \
+    JRErrExpressionAdapter( ^{ return EXPR; }, &$$expression, jrErrRef); \
 })
 
 #define kPushJRErr   NO
 #define kThrowJRErr  YES
 
-#define JRPushErr(EXPR)   JRPushErrImpl(EXPR, &JRErrStandardDetector, &JRErrStandardAnnotator, kPushJRErr)
-#define JRThrowErr(EXPR)  JRPushErrImpl(EXPR, &JRErrStandardDetector, &JRErrStandardAnnotator, kThrowJRErr)
+#define JRPushErr(EXPR)   JRPushErrImpl(EXPR, kPushJRErr)
+#define JRThrowErr(EXPR)  JRPushErrImpl(EXPR, kThrowJRErr)
 
 //-----------------------------------------------------------------------------------------
 
@@ -196,12 +175,7 @@ extern void JRErrCreateAndReportError(intptr_t exprResultValue, JRErrCallContext
 
 //----------------------------------------------------------------------------------------- 
 
-@interface NS(JRErrContext) : NSObject {
-#ifndef NOIVARS
-  @protected
-    NSMutableArray  *errorStack;
-#endif
-}
+@interface NS(JRErrContext) : NSObject
 @property(retain)  NSMutableArray  *errorStack;
 
 + (NS(JRErrContext)*)currentContext;

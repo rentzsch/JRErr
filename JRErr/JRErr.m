@@ -18,19 +18,18 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
 }
 
 @implementation JRErrContext
-@synthesize errorStack;
 
 - (id)init {
     self = [super init];
     if (self) {
-        errorStack = [[NSMutableArray alloc] init];
+        _errorStack = [NSMutableArray new];
     }
     return self;
 }
 
 #if !__has_feature(objc_arc)
 - (void)dealloc {
-    [errorStack release];
+    [_errorStack release];
     [super dealloc];
 }
 #endif
@@ -82,93 +81,102 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
 - (id)initWithError:(NSError*)error {
     self = [super initWithName:@"NSError"
                         reason:[error description]
-                      userInfo:[NSDictionary dictionaryWithObject:error
-                                                           forKey:@"error"]];
+                      userInfo:@{@"error": error}];
     return self;
 }
 
 @end
 
-
-
 NSString * const JRErrDomain = @"JRErrDomain";
 
-void JRErrCreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef) {
-    NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                                     [NSString stringWithUTF8String:callContext->file], @"__FILE__",
-                                     [NSNumber numberWithInt:callContext->line], @"__LINE__",
-                                     [NSString stringWithUTF8String:callContext->function], @"__PRETTY_FUNCTION__",
-                                     [NSString stringWithUTF8String:callContext->expr], @"EXPR",
-                                     [NSThread callStackSymbols], @"callStack",
-                                     nil];
-    if (callContext->annotator) {
-        callContext->annotator(*jrErrRef,
-                               callContext->exprResultType,
-                               exprResultValue,
-                               userInfo);
-    }
+void JRErrReportError(JRErrExpression *expression,
+                      NSError *error,
+                      NSDictionary *additionalErrorUserInfo)
+{
     NSError *mergedError;
-    if (*jrErrRef) {
-        [userInfo setValuesForKeysWithDictionary:[*jrErrRef userInfo]];
-        mergedError = [NSError errorWithDomain:[*jrErrRef domain]
-                                          code:[*jrErrRef code]
-                                      userInfo:userInfo];
-    } else {
-        mergedError = [NSError errorWithDomain:JRErrDomain
-                                          code:-1
-                                      userInfo:userInfo];
-    }
+    {{
+        NSMutableDictionary *mergedUserInfo;
+        {{
+            mergedUserInfo = [[@{
+                               @"__FILE__":             [NSString stringWithUTF8String:expression->file],
+                               @"__LINE__":             [NSNumber numberWithInt:expression->line],
+                               @"__PRETTY_FUNCTION__":  [NSString stringWithUTF8String:expression->function],
+                               @"EXPR":                 [NSString stringWithUTF8String:expression->expr],
+                               @"callStack":            [NSThread callStackSymbols],
+                               } mutableCopy] autorelease];
+            if (error) {
+                [mergedUserInfo setValuesForKeysWithDictionary:[error userInfo]];
+            }
+            if (additionalErrorUserInfo) {
+                [mergedUserInfo setValuesForKeysWithDictionary:additionalErrorUserInfo];
+            }
+        }}
+        
+        if (error) {
+            mergedError = [NSError errorWithDomain:[error domain]
+                                              code:[error code]
+                                          userInfo:mergedUserInfo];
+        } else {
+            mergedError = [NSError errorWithDomain:JRErrDomain
+                                              code:-1
+                                          userInfo:mergedUserInfo];
+        }
+    }}
+    
     [[JRErrContext currentContext] pushError:mergedError];
-    if (callContext->shouldThrow) {
+    
+    if (expression->shouldThrow) {
         @throw [JRErrException exceptionWithError:mergedError];
     }
 }
 
-id     __attribute__((overloadable)) JRErrReturnTypeAdapter(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    JRErrReturnTypeAdapterImpl(id);
-}
-
-BOOL   __attribute__((overloadable)) JRErrReturnTypeAdapter(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    JRErrReturnTypeAdapterImpl(BOOL);
-}
-
-void*  __attribute__((overloadable)) JRErrReturnTypeAdapter(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    JRErrReturnTypeAdapterImpl(void*);
-}
-
-void   __attribute__((overloadable)) JRErrReturnTypeAdapter(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
-    block();
-    if (callContext->detector(callContext->exprResultType, 0, jrErrRef)) {
-        JRErrCreateAndReportError(-1, callContext, jrErrRef);
-    }
-}
-
-BOOL JRErrStandardDetector(const char *codeResultType, intptr_t codeResultValue, NSError **jrErrRef) {
-    switch (codeResultType[0]) {
-        case 'c': // @encode(BOOL)
-            return codeResultValue == NO;
-            break;
-        case 'v': // @encode(void)
-            return *jrErrRef ? YES : NO;
-            break;
-        default:
-            return codeResultValue ? NO : YES;
-            break;
-    }
-    
-    NSLog(@"codeResultType: '%s'\n", codeResultType);
-    if (codeResultType[1] == 0 && codeResultType[0] == 'c') {
-        //
-        return codeResultValue == NO;
-    } else {
-        return codeResultValue ? YES : NO;
-    }
-}
-
-void JRErrStandardAnnotator(NSError *error,
-                            const char *exprResultType,
-                            intptr_t exprResultValue,
-                            NSMutableDictionary *errorUserInfo)
+    id
+    __attribute__((overloadable))
+JRErrExpressionAdapter(id (^block)(void),
+                       JRErrExpression *expression,
+                       NSError **jrErrRef)
 {
-	// No-op (here primarily for documentation purposes).
+    id result = block();
+    if (!result) {
+        JRErrReportError(expression, *jrErrRef, nil);
+    }
+    return result;
+}
+
+    BOOL
+    __attribute__((overloadable))
+JRErrExpressionAdapter(BOOL (^block)(void),
+                       JRErrExpression *expression,
+                       NSError **jrErrRef)
+{
+    BOOL result = block();
+    if (!result) {
+        JRErrReportError(expression, *jrErrRef, nil);
+    }
+    return result;
+}
+
+    void*
+    __attribute__((overloadable))
+JRErrExpressionAdapter(void* (^block)(void),
+                       JRErrExpression *expression,
+                       NSError **jrErrRef)
+{
+    void *result = block();
+    if (!result) {
+        JRErrReportError(expression, *jrErrRef, nil);
+    }
+    return result;
+}
+
+    void
+    __attribute__((overloadable))
+JRErrExpressionAdapter(void (^block)(void),
+                       JRErrExpression *expression,
+                       NSError **jrErrRef)
+{
+    block();
+    if (*jrErrRef) {
+        JRErrReportError(expression, *jrErrRef, nil);
+    }
 }
