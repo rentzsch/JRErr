@@ -159,7 +159,12 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     NSParameterAssert(*error == nil);
     // Poison the error object so we'll crash if it's inspected
     // (errors shouldn't be looked at if the method indicates success):
+#if __has_feature(objc_arc)
+    *error = (NSError*)[NSNull null];
+#else
     *error = (NSError*)0x1;
+#endif
+    
     return YES;
 }
 
@@ -197,7 +202,11 @@ static void WeirdErrorAnnotator(const char *codeResultType,
 - (id)returnPtrAndNoError:(NSError**)error {
     NSParameterAssert(error);
     NSParameterAssert(*error == nil);
+#if __has_feature(objc_arc)
+    *error = (NSError*)[NSNull null];
+#else
     *error = (NSError*)0x1;
+#endif
     return self;
 }
 

@@ -54,8 +54,8 @@ void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCal
 
 #define JRPushErrImpl(EXPR, detector, annotator, shouldThrow) \
 ({ \
-    NSError *__jrErr = nil; \
-    NSError **jrErrRef __attribute__((unused)) = &__jrErr; \
+    NSError * __autoreleasing __jrErr = nil; \
+    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &__jrErr; \
     JRErrCallContext callContext = { \
         #EXPR, \
         @encode(typeof(EXPR)), \
@@ -73,8 +73,8 @@ void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCal
 #define kPushJRErr   NO
 #define kThrowJRErr  YES
 
-#define JRPushErr(CODE)   JRPushErrImpl(CODE, &JRErrStandardDetector, &JRErrStandardAnnotator, kPushJRErr)
-#define JRThrowErr(CODE)  JRPushErrImpl(CODE, &JRErrStandardDetector, &JRErrStandardAnnotator, kThrowJRErr)
+#define JRPushErr(EXPR)   JRPushErrImpl(EXPR, &JRErrStandardDetector, &JRErrStandardAnnotator, kPushJRErr)
+#define JRThrowErr(EXPR)  JRPushErrImpl(EXPR, &JRErrStandardDetector, &JRErrStandardAnnotator, kThrowJRErr)
 
 //-----------------------------------------------------------------------------------------
 

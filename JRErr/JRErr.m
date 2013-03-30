@@ -5,6 +5,10 @@
 
 #import "JRErr.h"
 
+#if __has_feature(objc_arc)
+    #define autorelease self
+#endif
+
 NSString * const JRErrDomain = @"JRErrDomain";
 
 static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext) {
@@ -102,10 +106,12 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
     return self;
 }
 
+#if !__has_feature(objc_arc)
 - (void)dealloc {
     [errorStack release];
     [super dealloc];
 }
+#endif
 
 + (JRErrContext*)currentContext {
     NSMutableDictionary *threadDict = [[NSThread currentThread] threadDictionary];
