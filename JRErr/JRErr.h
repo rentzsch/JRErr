@@ -36,14 +36,14 @@ extern void JRErrStandardAnnotator(NSError *error,
                                    NSMutableDictionary *errorUserInfo);
 
 typedef struct {
-    const char                   *expr;
-    const char                   *exprResultType;
-    JRErrDetector                detector;
-    JRErrAnnotator               annotator;
-    BOOL                         shouldThrow;
-    const char                   *file;
-    unsigned                     line;
-    const char                   *function;
+    const char      *expr;
+    const char      *exprResultType;
+    JRErrDetector   detector;
+    JRErrAnnotator  annotator;
+    BOOL            shouldThrow;
+    const char      *file;
+    unsigned        line;
+    const char      *function;
 } JRErrCallContext;
 
 id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
