@@ -97,8 +97,6 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
     
-#if 0
-    
     assert(!jrErr);
     JRPushErr([obj returnPtrAndAnError:jrErrRef]);
     assert(!jrErr);
@@ -120,6 +118,8 @@ static void WeirdErrorAnnotator(const char *codeResultType,
     assert([jrErr code] == 42);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
+    
+#if 0
     
     assert(!jrErr);
     JRPushErr(ReturnWeirdOK());
