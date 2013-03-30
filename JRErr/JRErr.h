@@ -38,7 +38,6 @@ extern void JRErrStandardAnnotator(NSError *error,
 typedef struct {
     const char                   *expr;
     const char                   *exprResultType;
-    __unsafe_unretained NSError  *error;
     JRErrDetector                detector;
     JRErrAnnotator               annotator;
     BOOL                         shouldThrow;
@@ -47,19 +46,18 @@ typedef struct {
     const char                   *function;
 } JRErrCallContext;
 
-id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext);
-BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext);
-void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext);
-void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext);
+id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
+void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef);
 
 #define JRPushErrImpl(EXPR, detector, annotator, shouldThrow) \
 ({ \
-    NSError * __autoreleasing __jrErr = nil; \
-    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &__jrErr; \
-    JRErrCallContext callContext = { \
+    NSError * __autoreleasing $jrErr = nil; \
+    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &$jrErr; \
+    JRErrCallContext $callContext = { \
         #EXPR, \
         @encode(typeof(EXPR)), \
-        __jrErr, \
         detector, \
         annotator, \
         shouldThrow, \
@@ -67,7 +65,7 @@ void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCal
         __LINE__, \
         __PRETTY_FUNCTION__, \
     }; \
-    xcall_block( ^{ return EXPR; }, &callContext); \
+    xcall_block( ^{ return EXPR; }, &$callContext, jrErrRef); \
 })
 
 #define kPushJRErr   NO

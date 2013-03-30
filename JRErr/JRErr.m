@@ -11,7 +11,7 @@
 
 NSString * const JRErrDomain = @"JRErrDomain";
 
-static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext) {
+static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *callContext, NSError **jrErrRef) {
     NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithObjectsAndKeys:
                                        [NSString stringWithUTF8String:callContext->file], @"__FILE__",
                                        [NSNumber numberWithInt:callContext->line], @"__LINE__",
@@ -20,16 +20,16 @@ static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *cal
                                        [NSThread callStackSymbols], @"callStack",
                                        nil];
     if (callContext->annotator) {
-        callContext->annotator(callContext->error,
+        callContext->annotator(*jrErrRef,
                                callContext->exprResultType,
                                exprResultValue,
                                userInfo);
     }
     NSError *mergedError;
-    if (callContext->error) {
-        [userInfo setValuesForKeysWithDictionary:[callContext->error userInfo]];
-        mergedError = [NSError errorWithDomain:[callContext->error domain]
-                                          code:[callContext->error code]
+    if (*jrErrRef) {
+        [userInfo setValuesForKeysWithDictionary:[*jrErrRef userInfo]];
+        mergedError = [NSError errorWithDomain:[*jrErrRef domain]
+                                          code:[*jrErrRef code]
                                       userInfo:userInfo];
     } else {
         mergedError = [NSError errorWithDomain:JRErrDomain
@@ -45,26 +45,26 @@ static void CreateAndReportError(intptr_t exprResultValue, JRErrCallContext *cal
 #define CALL_BLOCK_IMPL(TYPE) \
     TYPE result = block(); \
     if (callContext->detector(callContext->exprResultType, (intptr_t)result)) { \
-        CreateAndReportError((intptr_t)result, callContext); \
+        CreateAndReportError((intptr_t)result, callContext, jrErrRef); \
     } \
     return result;
 
-id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext) {
+id     __attribute__((overloadable)) xcall_block(id     (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
     CALL_BLOCK_IMPL(id);
 }
 
-BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext) {
+BOOL   __attribute__((overloadable)) xcall_block(BOOL   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
     CALL_BLOCK_IMPL(BOOL);
 }
 
-void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext) {
+void*  __attribute__((overloadable)) xcall_block(void*  (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
     CALL_BLOCK_IMPL(void*);
 }
 
-void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext) {
+void   __attribute__((overloadable)) xcall_block(void   (^block)(void), JRErrCallContext *callContext, NSError **jrErrRef) {
     block();
     if (callContext->detector(callContext->exprResultType, -1)) {
-        CreateAndReportError(-1, callContext);
+        CreateAndReportError(-1, callContext, jrErrRef);
     }
 }
 
