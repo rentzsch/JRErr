@@ -18,6 +18,7 @@ void JRErrRunLoopObserver(CFRunLoopObserverRef observer, CFRunLoopActivity activ
 }
 
 @implementation JRErrContext
+@synthesize errorStack = _errorStack;
 
 - (id)init {
     self = [super init];

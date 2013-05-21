@@ -175,7 +175,12 @@ extern void JRErrReportError(JRErrExpression *expression, NSError *error, NSDict
 
 //----------------------------------------------------------------------------------------- 
 
-@interface NS(JRErrContext) : NSObject
+@interface NS(JRErrContext) : NSObject {
+#ifndef NOIVARS
+  @protected
+    NSMutableArray  *_errorStack;
+#endif
+}
 @property(retain)  NSMutableArray  *errorStack;
 
 + (NS(JRErrContext)*)currentContext;
