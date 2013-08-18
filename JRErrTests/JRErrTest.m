@@ -132,6 +132,16 @@ JRErrExpressionAdapter(WeirdError(^block)(void),
     assert([[[jrErr userInfo] objectForKey:@"weirdErrName"] isEqualToString:NSStringFromWeirdError(WeirdError_Error)]);
     [[JRErrContext currentContext] popError];
     assert(!jrErr);
+    
+    {{
+        assert(!jrErr);
+        NSError *myCustomError = [NSError errorWithDomain:@"MyDomain" code:-128 userInfo:JRMakeErrUserInfo()];
+        [[JRErrContext currentContext] pushError:myCustomError];
+        assert(jrErr);
+        assert([jrErr code] == -128);
+        [[JRErrContext currentContext] popError];
+        assert(!jrErr);
+    }}
 }
 
 @end
