@@ -56,10 +56,16 @@ extern void JRErrReportError(JRErrExpression *expression, NSError *error, NSDict
 // Along with jrErr, this section provides the most-commonplace interface to JRErr. That
 // would be JRPushErr()/JRThrowErr() and their jrErrRef magic.
 
+#if __has_feature(objc_arc)
+    #define __jrerr_autoreleasing __autoreleasing
+#else
+    #define __jrerr_autoreleasing
+#endif
+
 #define JRPushErrImpl(EXPR, shouldThrow) \
 ({ \
-    NSError * __autoreleasing $$jrErr = nil; \
-    NSError * __autoreleasing *jrErrRef __attribute__((unused)) = &$$jrErr; \
+    NSError * __jrerr_autoreleasing $$jrErr = nil; \
+    NSError * __jrerr_autoreleasing *jrErrRef __attribute__((unused)) = &$$jrErr; \
     JRErrExpression $$expression = { \
         #EXPR, \
         __FILE__, \
