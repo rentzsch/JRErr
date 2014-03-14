@@ -236,7 +236,15 @@ I wouldn't let that scare you off ARC and exceptions altogether. The document go
 
 ## Version History
 
-### v2.0.0b1: Mar 30 2013
+### v2.0: Mar 14 2014
+
+* Add custom manual error to test suite. [rentzsch](https://github.com/rentzsch/JRErr/commit/fe45a21e07640c1713fce2d023678a191ae55647)
+
+* Add explicit ivars so we can still target 32-bit. [rentzsch](https://github.com/rentzsch/JRErr/commit/ddb8ae4be56d83b34e9910d1512f8829e5e27ef3)
+
+* Compatible with pre-ARC SDKs. [Nicholas Riley](https://github.com/rentzsch/JRErr/issues/4#issuecomment-22805702).
+
+### v2.0b1: Mar 30 2013
 
 * Now ARC compatible (MRC is still supported).
 
@@ -252,6 +260,6 @@ I wouldn't let that scare you off ARC and exceptions altogether. The document go
 
 	Turns that trick doesn't play with ARC. At all. So [v2.x leverages](https://twitter.com/rentzsch/statuses/291616133843402752) block type inference and `__attribute__((overloadable))`. Took a while to figure out, but this is far cooler and less hacky.
 
-### v1.0.0: Mar 14 2013
+### v1.0: Mar 14 2013
 
 * First stable release. Work begins on v2.x...
